@@ -60,3 +60,11 @@ details:first-of-type { border-top: 0; }
 summary { cursor: pointer; font-weight: 600; }
 details p { margin: 8px 0 0; color: var(--muted); font-size: 15px; }
 .related a { display: inline-block; margin: 4px 10px 4px 0; color: var(--accent); }
+.links a { display: flex; align-items: center; gap: 14px; }
+.links .txt { min-width: 0; }
+.ico { flex: none; width: 46px; height: 46px; border-radius: 12px; background: var(--soft); color: var(--accent); display: grid; place-items: center; transition: background .15s, color .15s; }
+.ico svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.ico.game { color: var(--good); }
+.links a:hover .ico { background: var(--accent); color: var(--accent-ink); }
+.links a:hover .ico.game { background: var(--good); color: var(--accent-ink); }
+@media (max-width: 420px) { .links a { gap: 12px; } .ico { width: 42px; height: 42px; } .ico svg { width: 24px; height: 24px; } }
