@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>월 적립 금액 계산기 - 읽고 검증하는 도구</title>
+<meta name="description" content="매달 얼마를 모으면 N년 뒤 얼마가 되는지, 목표 금액에 필요한 월 적립액은 얼마인지 계산합니다. 물가와 세금 반영 옵션이 있습니다.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="site"><a href="./">← 도구 목록</a><a href="https://readtest.tistory.com/">읽고 검증하는 노트</a></header>
+  <h1>월 적립 금액 계산기</h1>
+  <p class="lead">매달 같은 금액을 넣었을 때 N년 뒤 얼마가 되는지, 또는 목표 금액을 만들려면 매달 얼마가 필요한지 계산합니다.</p>
+
+  <div class="tabs" role="group" aria-label="계산 방식">
+    <button type="button" id="m1" aria-pressed="true">월 적립액 → 최종 금액</button>
+    <button type="button" id="m2" aria-pressed="false">목표 금액 → 필요한 월 적립액</button>
+  </div>
+
+  <div class="card">
+    <div class="grid">
+      <div id="boxPay"><label for="pay">월 적립액</label><input id="pay" type="text" inputmode="numeric" value="500,000"><div class="unit">원, 매월 말 납입</div></div>
+      <div id="boxGoal" hidden><label for="goal">목표 금액</label><input id="goal" type="text" inputmode="numeric" value="100,000,000"><div class="unit">원</div></div>
+      <div><label for="years">적립 기간</label><input id="years" type="number" inputmode="decimal" value="10" step="1" min="1"><div class="unit">년</div></div>
+      <div><label for="ret">연 수익률(복리)</label><input id="ret" type="number" inputmode="decimal" value="7" step="0.5"><div class="unit">%, 세전·비용 차감 전</div></div>
+      <div><label for="infl">연 물가상승률</label><input id="infl" type="number" inputmode="decimal" value="2.5" step="0.1"><div class="unit">%, 지금 돈 가치로 환산할 때</div></div>
+      <div><label for="tax">이익에 붙는 세율</label><input id="tax" type="number" inputmode="decimal" value="0" step="1" min="0" max="100"><div class="unit">%, 끝에 한 번 내는 것으로 단순화 (0이면 무시)</div></div>
+    </div>
+  </div>
+
+  <div class="card" id="out"></div>
+
+  <h2>연도별 변화</h2>
+  <div class="card scroll"><table id="tbl"></table></div>
+
+  <p class="note">수익률이 매년 같다는 가정이라 실제와 다릅니다. 같은 평균 수익률이라도 시작 시점에 따라 결과가 크게 갈립니다. 1871년 이후 S&amp;P500 롤링 월 적립 결과는 <a href="https://readtest.tistory.com/64">블로그 글</a>에서 볼 수 있습니다. 세금은 세율 하나로 단순화했으며 공제나 계좌 종류(ISA, 연금계좌)는 반영하지 않습니다.</p>
+
+  <footer>투자 권유가 아닌 교육용 계산 도구입니다. 계산 결과의 정확성을 보장하지 않으며, 투자 판단과 책임은 본인에게 있습니다.</footer>
+</div>
+<script src="common.js"></script>
+<script>
+let mode = 1;
+function setMode(m) {
+  mode = m;
+  $("m1").setAttribute("aria-pressed", m === 1);
+  $("m2").setAttribute("aria-pressed", m === 2);
+  $("boxPay").hidden = m !== 1;
+  $("boxGoal").hidden = m !== 2;
+  calc();
+}
+$("m1").onclick = () => setMode(1);
+$("m2").onclick = () => setMode(2);
+
+// 쉼표를 넣어 보기 좋게 (입력 중 커서 위치는 끝으로 가므로 숫자만 쓸 때 편하다)
+["pay", "goal"].forEach((id) => $(id).addEventListener("blur", () => {
+  const v = num(id, 0); $(id).value = v.toLocaleString("ko-KR");
+}));
+
+// 세후 금액: 이익(최종 - 원금)에만 세율 적용
+function afterTax(fv, principal, t) { return fv - Math.max(fv - principal, 0) * t; }
+
+function calc() {
+  const years = Math.max(Math.round(num("years", 10)), 1), n = years * 12;
+  const r = num("ret", 7) / 100, infl = num("infl", 0) / 100, t = Math.min(Math.max(num("tax", 0), 0), 100) / 100;
+  let pay;
+  if (mode === 1) pay = num("pay", 0);
+  else {
+    // 세후 목표를 맞추려면 세전 FV를 역산: 세후 = fv - t*(fv - 원금) = fv(1-t) + t*pay*n  → fv = (goal - t*pay*n)/(1-t), pay는 fv(pay)에 비례
+    const goal = num("goal", 0), unit = fvMonthly(1, r, n);
+    // 세후(pay) = pay*(unit*(1-t) + t*n) 이므로
+    pay = goal / (unit * (1 - t) + t * n);
+  }
+  const principal = pay * n, fv = fvMonthly(pay, r, n), net = afterTax(fv, principal, t);
+  const real = net / Math.pow(1 + infl, years);
+  const gain = net - principal;
+  const head = mode === 1
+    ? `<div class="big">${won(net)} <small>(${years}년 뒤${t ? ", 세후" : ""})</small></div>`
+    : `<div class="big">월 ${won(pay)} <small>(${years}년 동안, 목표 ${won(num("goal", 0))})</small></div>`;
+  $("out").innerHTML = head + `
+    <div class="kpis" style="margin-top:12px">
+      <div class="kpi"><div class="t">낸 원금</div><div class="v">${won(principal)}</div></div>
+      <div class="kpi"><div class="t">수익${t ? "(세후)" : ""}</div><div class="v">${won(gain)}</div></div>
+      <div class="kpi"><div class="t">원금의 몇 배</div><div class="v">${principal > 0 ? times(net / principal) : "-"}</div></div>
+      <div class="kpi"><div class="t">지금 돈 가치로(물가 ${pct(infl)})</div><div class="v">${won(real)}</div></div>
+    </div>`;
+  let h = "<tr><th>연차</th><th>낸 원금</th><th>평가금액</th><th>수익</th></tr>";
+  for (let y = 1; y <= years; y++) {
+    if (years > 15 && y % 2 && y !== years) continue;
+    const p = pay * y * 12, f = fvMonthly(pay, r, y * 12);
+    h += `<tr><td>${y}년</td><td>${won(p)}</td><td>${won(f)}</td><td>${won(f - p)}</td></tr>`;
+  }
+  $("tbl").innerHTML = h + (t ? '<tr><td colspan="4" class="note">표는 세전 금액입니다.</td></tr>' : "");
+}
+bind(["pay", "goal", "years", "ret", "infl", "tax"], calc);
+</script>
+</body>
+</html>

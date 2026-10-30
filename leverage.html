@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>레버리지 ETF 적립 시뮬레이터 - 읽고 검증하는 도구</title>
+<meta name="description" content="지수의 수익률과 변동성을 넣으면 1배·2배·3배 레버리지 ETF에 매달 적립했을 때의 평균적인 결과와 변동성 잠식 효과를 보여줍니다.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="site"><a href="./">← 도구 목록</a><a href="https://readtest.tistory.com/">읽고 검증하는 노트</a></header>
+  <h1>레버리지 ETF 적립 시뮬레이터</h1>
+  <p class="lead">지수의 연 수익률과 변동성을 넣으면, 같은 지수를 1배·2배·3배로 매달 적립했을 때 <b>평균적으로</b> 어떻게 되는지 보여줍니다. 3배는 지수 수익률의 3배가 아니라, 변동성 때문에 그보다 훨씬 낮아질 수 있습니다.</p>
+
+  <div class="card">
+    <div class="grid">
+      <div><label for="pay">월 적립액</label><input id="pay" type="text" inputmode="numeric" value="500,000"><div class="unit">원, 매월 말</div></div>
+      <div><label for="years">적립 기간</label><input id="years" type="number" inputmode="decimal" value="10" step="1" min="1"><div class="unit">년</div></div>
+      <div><label for="cagr">지수 연 수익률(복리)</label><input id="cagr" type="number" inputmode="decimal" value="10" step="0.5"><div class="unit">% · 나스닥100 장기 평균은 대략 10%대</div></div>
+      <div><label for="vol">지수 연 변동성</label><input id="vol" type="number" inputmode="decimal" value="22" step="1" min="0"><div class="unit">% · 일간 수익률의 연환산 표준편차</div></div>
+      <div><label for="fin">차입 비용</label><input id="fin" type="number" inputmode="decimal" value="4" step="0.5"><div class="unit">% · 빌린 금액(배수-1)에 붙는 연 금리</div></div>
+      <div><label for="exp">연 총보수</label><input id="exp" type="number" inputmode="decimal" value="0.9" step="0.1"><div class="unit">% · 레버리지 ETF 보수</div></div>
+    </div>
+  </div>
+
+  <div class="card" id="out"></div>
+
+  <h2>변동성이 커질수록 3배의 연 수익률은?</h2>
+  <p class="note">위에서 입력한 지수 수익률·비용은 그대로 두고 변동성만 바꾼 결과입니다.</p>
+  <div class="card scroll"><table id="tbl"></table></div>
+
+  <h2>이 모델이 보여주는 것과 못 보여주는 것</h2>
+  <div class="card note">
+    <p><b>가정</b>: 레버리지 ETF가 매일 목표 배수로 재조정되고, 일간 수익률이 정규분포를 따른다고 보고 계산한 <b>기댓값에 가까운 경로</b>입니다. 연 성장률(로그) = 배수×(지수 로그수익률 + σ²/2) − 배수²×σ²/2 − (배수−1)×차입 비용 − 보수.</p>
+    <p><b>보여주는 것</b>: 같은 지수라도 변동성이 클수록, 배수가 클수록 복리 수익이 깎이는 폭(변동성 잠식)이 커집니다.</p>
+    <p><b>못 보여주는 것</b>: 실제 경로는 이 평균에서 크게 벗어납니다. 2000년 닷컴 붕괴나 2008년처럼 지수가 크게 빠진 구간에서는 3배 ETF가 80% 이상 하락했고, 적립을 시작한 시점에 따라 결과가 크게 달라집니다. 실제 시장 데이터로 27년을 합성해 비교한 결과는 블로그 글 <a href="https://readtest.tistory.com/72">/72</a>, <a href="https://readtest.tistory.com/75">/75</a>에 있습니다.</p>
+  </div>
+
+  <footer>투자 권유가 아닌 교육용 계산 도구입니다. 레버리지 ETF는 원금 대부분을 잃을 수 있는 상품입니다. 계산 결과의 정확성을 보장하지 않으며, 투자 판단과 책임은 본인에게 있습니다.</footer>
+</div>
+<script src="common.js"></script>
+<script>
+["pay"].forEach((id) => $(id).addEventListener("blur", () => { $(id).value = num(id, 0).toLocaleString("ko-KR"); }));
+
+// 연 로그 성장률. m = ln(1+지수 수익률), s = 변동성, L = 배수
+function logGrowth(m, s, L, fin, exp) {
+  return L * m + 0.5 * L * (1 - L) * s * s - (L - 1) * fin - (L > 1 ? exp : 0);
+}
+const annualFactor = (g) => Math.exp(g);
+
+function calc() {
+  const years = Math.max(Math.round(num("years", 10)), 1), n = years * 12;
+  const pay = num("pay", 0), c = num("cagr", 10) / 100, s = num("vol", 22) / 100;
+  const fin = num("fin", 4) / 100, exp = num("exp", 0.9) / 100;
+  const m = Math.log(1 + c);
+  const principal = pay * n;
+  const rows = [1, 2, 3].map((L) => {
+    const g = logGrowth(m, s, L, fin, exp);
+    const cagr = annualFactor(g) - 1;
+    const fv = fvMonthly(pay, cagr, n);
+    return { L, cagr, fv, naive: L * c };
+  });
+  const max = Math.max(...rows.map((r) => r.fv), 1);
+  let h = `<div class="note">낸 원금 ${won(principal)}</div>`;
+  rows.forEach((r) => {
+    h += `<div style="margin:14px 0">
+      <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>${r.L}배</b><span>연 ${pct(r.cagr)} (단순 ${r.L}배면 ${pct(r.naive)})</span></div>
+      <div class="big">${won(r.fv)} <small>원금의 ${times(principal ? r.fv / principal : 0)}</small></div>
+      <div class="bar"><span style="width:${Math.max(r.fv / max * 100, 0.5)}%"></span></div></div>`;
+  });
+  if (rows[2].cagr < rows[0].cagr) h += `<p class="warn">이 조건에서는 3배의 평균 성장률이 1배보다 낮습니다. 변동성 잠식과 비용이 배수 효과를 넘어서는 구간입니다.</p>`;
+  $("out").innerHTML = h;
+
+  let t = "<tr><th>지수 변동성</th><th>3배 연 수익률</th><th>2배 연 수익률</th><th>1배</th></tr>";
+  [10, 15, 20, 25, 30, 40, 50, 60].forEach((v) => {
+    const sv = v / 100;
+    const r3 = annualFactor(logGrowth(m, sv, 3, fin, exp)) - 1, r2 = annualFactor(logGrowth(m, sv, 2, fin, exp)) - 1;
+    t += `<tr><td>${v}%</td><td>${pct(r3)}</td><td>${pct(r2)}</td><td>${pct(c)}</td></tr>`;
+  });
+  $("tbl").innerHTML = t;
+}
+bind(["pay", "years", "cagr", "vol", "fin", "exp"], calc);
+</script>
+</body>
+</html>
