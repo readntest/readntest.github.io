@@ -55,3 +55,8 @@ footer a { color: var(--accent); }
 .links a b { display: block; font-size: 17px; }
 .links a span { font-size: 14px; color: var(--muted); }
 .links a:hover { border-color: var(--accent); }
+details { border-top: 1px solid var(--line); padding: 10px 0; }
+details:first-of-type { border-top: 0; }
+summary { cursor: pointer; font-weight: 600; }
+details p { margin: 8px 0 0; color: var(--muted); font-size: 15px; }
+.related a { display: inline-block; margin: 4px 10px 4px 0; color: var(--accent); }
