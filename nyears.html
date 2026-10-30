@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>N년 전 1억 오늘 평가액 계산기 - 읽고 검증하는 도구</title>
+<meta name="description" content="코스피와 S&P500에 N년 전(또는 원하는 날짜)에 투자금을 넣었다면 오늘 얼마가 됐는지, 그 사이 최저 평가액과 최대 낙폭은 얼마였는지 계산합니다. 가격지수 기준.">
+<link rel="stylesheet" href="style.css">
+<style>
+  .chart { width: 100%; height: auto; display: block; }
+  .chart .ln { fill: none; stroke: var(--accent); stroke-width: 2; vector-effect: non-scaling-stroke; }
+  .chart .base { stroke: var(--muted); stroke-dasharray: 4 4; stroke-width: 1; vector-effect: non-scaling-stroke; }
+  .chart text { fill: var(--muted); font-size: 11px; }
+  .quick { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .quick button { padding: 6px 12px; border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 999px; font: inherit; font-size: 14px; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="site"><a href="./">← 도구 목록</a><a href="https://readtest.tistory.com/">읽고 검증하는 노트</a></header>
+  <h1>N년 전 1억 오늘 평가액 계산기</h1>
+  <p class="lead">코스피나 S&amp;P500에 원하는 날짜에 한 번 넣고 그대로 뒀다면 오늘 얼마가 됐을까요? 그 사이 가장 낮았던 때와 가장 크게 빠졌던 폭도 같이 봅니다.</p>
+
+  <div class="tabs" role="group" aria-label="지수">
+    <button type="button" id="ixKOSPI" aria-pressed="true">코스피</button>
+    <button type="button" id="ixSP500" aria-pressed="false">S&amp;P500</button>
+  </div>
+
+  <div class="card">
+    <div class="grid">
+      <div><label for="amt">투자금</label><input id="amt" type="text" inputmode="numeric" value="100,000,000"><div class="unit">원</div></div>
+      <div><label for="start">투자 시작일</label><input id="start" type="date"><div class="unit" id="rangeNote"></div></div>
+    </div>
+    <div class="quick" id="quick"></div>
+  </div>
+
+  <div class="card" id="out"></div>
+
+  <h2>평가액 추이</h2>
+  <div class="card"><svg id="chart" class="chart" viewBox="0 0 640 260" role="img" aria-label="시작일 이후 평가액 변화 그래프"></svg><div class="note" id="chartNote"></div></div>
+
+  <h2>N년 전에 넣었다면 (두 지수 비교)</h2>
+  <div class="card scroll"><table id="tbl"></table></div>
+
+  <h2>읽는 법과 한계</h2>
+  <div class="card note">
+    <p><b>가격지수 기준</b>입니다. 배당, 환율, 세금, 수수료는 넣지 않았습니다. S&amp;P500은 달러 지수의 배수를 그대로 원화 투자금에 곱한 값이라 환율 변동이 반영되지 않습니다. 실제 원화 투자자의 결과와 다릅니다.</p>
+    <p>시작일이 휴장일이면 직전 거래일 종가를 씁니다. <b>시작 시점 하나의 결과</b>라서, 같은 기간이라도 다른 날 시작하면 크게 달라집니다. 오래 두면 좋았다는 결과는 지나간 뒤에 본 숫자입니다. 고점에 넣었을 때 원금을 회복하는 데 몇 년이 걸렸는지는 <a href="https://readtest.tistory.com/136">블로그 글</a>에서 다뤘습니다.</p>
+    <p id="asof"></p>
+  </div>
+
+  <footer>투자 권유가 아닌 교육용 계산 도구입니다. 과거 성과가 미래를 보장하지 않으며, 투자 판단과 책임은 본인에게 있습니다.</footer>
+</div>
+<script src="common.js"></script>
+<script src="index-data.js"></script>
+<script>
+const DAY = 86400000;
+const NAMES = { KOSPI: "코스피", SP500: "S&P500" };
+// 압축된 데이터를 (일 번호, 종가) 배열로 풀기
+const SER = {};
+for (const k of Object.keys(INDEX_DATA)) {
+  const d = INDEX_DATA[k], p = d.start.split("-").map(Number);
+  let day = Date.UTC(p[0], p[1] - 1, p[2]) / DAY;
+  const days = new Array(d.n);
+  for (let i = 0; i < d.n; i++) { if (i > 0) day += d.d[i]; days[i] = day; } // d.d[0]은 시작일 자체라 건너뜀
+  SER[k] = { days, v: d.v, end: d.end, start: d.start };
+}
+const iso = (dn) => new Date(dn * DAY).toISOString().slice(0, 10);
+const toDay = (s) => { const p = s.split("-").map(Number); return Date.UTC(p[0], p[1] - 1, p[2]) / DAY; };
+// 시작일 이전(포함) 마지막 거래일의 인덱스. 데이터보다 이르면 -1
+function idxOnOrBefore(S, dn) {
+  let lo = 0, hi = S.days.length - 1, ans = -1;
+  while (lo <= hi) { const m = (lo + hi) >> 1; if (S.days[m] <= dn) { ans = m; lo = m + 1; } else hi = m - 1; }
+  return ans;
+}
+function yearsAgo(S, n) {
+  const e = new Date(S.days[S.days.length - 1] * DAY);
+  e.setUTCFullYear(e.getUTCFullYear() - n);
+  return e.getTime() / DAY;
+}
+
+let ix = "KOSPI";
+function setIndex(k) {
+  ix = k;
+  $("ixKOSPI").setAttribute("aria-pressed", k === "KOSPI");
+  $("ixSP500").setAttribute("aria-pressed", k === "SP500");
+  const S = SER[k];
+  $("start").min = S.start; $("start").max = S.end;
+  $("rangeNote").textContent = `${NAMES[k]} 자료: ${S.start} ~ ${S.end}`;
+  // 현재 시작일이 범위를 벗어나면 10년 전으로
+  const cur = $("start").value ? toDay($("start").value) : null;
+  if (cur === null || cur < S.days[0] || cur > S.days[S.days.length - 1]) $("start").value = iso(yearsAgo(S, 10));
+  buildQuick();
+  calc();
+}
+function buildQuick() {
+  const S = SER[ix], q = $("quick");
+  q.innerHTML = "";
+  [5, 10, 15, 20, 25, 30, 40].forEach((n) => {
+    const dn = yearsAgo(S, n);
+    if (dn < S.days[0]) return;
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = n + "년 전";
+    b.onclick = () => { $("start").value = iso(dn); calc(); };
+    q.appendChild(b);
+  });
+}
+$("ixKOSPI").onclick = () => setIndex("KOSPI");
+$("ixSP500").onclick = () => setIndex("SP500");
+$("amt").addEventListener("blur", () => { $("amt").value = num("amt", 0).toLocaleString("ko-KR"); });
+
+function result(S, startDn, amt) {
+  const i0 = idxOnOrBefore(S, startDn);
+  if (i0 < 0) return null;
+  const last = S.days.length - 1, p0 = S.v[i0];
+  let min = Infinity, minI = i0, peak = p0, mdd = 0, mddPeakI = i0, mddTroughI = i0, peakI = i0;
+  for (let i = i0; i <= last; i++) {
+    const v = S.v[i];
+    if (v < min) { min = v; minI = i; }
+    if (v > peak) { peak = v; peakI = i; }
+    const dd = v / peak - 1;
+    if (dd < mdd) { mdd = dd; mddPeakI = peakI; mddTroughI = i; }
+  }
+  const mult = S.v[last] / p0, yrs = (S.days[last] - S.days[i0]) / 365.25;
+  return { i0, last, p0, p1: S.v[last], mult, value: amt * mult, cagr: yrs > 0.25 ? Math.pow(mult, 1 / yrs) - 1 : NaN, yrs,
+           minVal: amt * min / p0, minDay: S.days[minI], mdd, mddPeak: S.days[mddPeakI], mddTrough: S.days[mddTroughI] };
+}
+
+function chart(S, r, amt) {
+  const pts = [], step = Math.max(1, Math.floor((r.last - r.i0) / 320));
+  for (let i = r.i0; i <= r.last; i += step) pts.push([S.days[i], amt * S.v[i] / r.p0]);
+  pts.push([S.days[r.last], amt * S.v[r.last] / r.p0]);
+  const W = 640, H = 260, L = 8, R = 8, T = 12, B = 24;
+  const x0 = pts[0][0], x1 = pts[pts.length - 1][0];
+  const lo = Math.min(...pts.map((p) => p[1]), amt), hi = Math.max(...pts.map((p) => p[1]), amt);
+  const sx = (x) => L + (x - x0) / Math.max(x1 - x0, 1) * (W - L - R);
+  const sy = (y) => T + (1 - (y - lo) / Math.max(hi - lo, 1)) * (H - T - B);
+  const path = pts.map((p, i) => (i ? "L" : "M") + sx(p[0]).toFixed(1) + " " + sy(p[1]).toFixed(1)).join("");
+  $("chart").innerHTML = `<line class="base" x1="${L}" x2="${W - R}" y1="${sy(amt)}" y2="${sy(amt)}"/>
+    <path class="ln" d="${path}"/>
+    <text x="${L}" y="${H - 6}">${iso(x0)}</text><text x="${W - R}" y="${H - 6}" text-anchor="end">${iso(x1)}</text>
+    <text x="${W - R}" y="${Math.max(sy(amt) - 4, 12)}" text-anchor="end">투자금 ${won(amt)}</text>`;
+  $("chartNote").textContent = `점선은 처음 투자금입니다. 최저 ${won(lo)}, 최고 ${won(hi)}.`;
+}
+
+function calc() {
+  const S = SER[ix], amt = num("amt", 0), v = $("start").value;
+  if (!v) { $("out").innerHTML = '<span class="warn">시작일을 골라 주세요.</span>'; return; }
+  const r = result(S, toDay(v), amt);
+  if (!r) { $("out").innerHTML = '<span class="warn">이 지수의 자료보다 이른 날짜입니다.</span>'; return; }
+  const underwater = r.value < amt;
+  $("out").innerHTML = `
+    <div class="big">${won(r.value)} <small>(${iso(S.days[r.i0])} 시작, ${NAMES[ix]})</small></div>
+    <div class="kpis" style="margin-top:12px">
+      <div class="kpi"><div class="t">배수</div><div class="v">${times(r.mult)}</div></div>
+      <div class="kpi"><div class="t">연 환산 수익률</div><div class="v">${Number.isFinite(r.cagr) ? pct(r.cagr) : "-"}</div></div>
+      <div class="kpi"><div class="t">기간</div><div class="v">${r.yrs.toFixed(1)}년</div></div>
+      <div class="kpi"><div class="t">지금까지 가장 낮았던 평가액</div><div class="v">${won(r.minVal)}</div><div class="t">${iso(r.minDay)}</div></div>
+      <div class="kpi"><div class="t">보유 중 최대 낙폭</div><div class="v">${pct(r.mdd)}</div><div class="t">${iso(r.mddPeak)} 고점 → ${iso(r.mddTrough)}</div></div>
+      <div class="kpi"><div class="t">시작일 종가 → 기준일 종가</div><div class="v">${r.p0.toLocaleString("ko-KR")} → ${r.p1.toLocaleString("ko-KR")}</div></div>
+    </div>
+    ${underwater ? '<p class="warn" style="margin-top:10px">이 시작일에 넣었다면 지금은 원금보다 낮습니다.</p>' : ""}`;
+  chart(S, r, amt);
+
+  let h = "<tr><th>시작 시점</th><th>코스피 배수</th><th>평가액</th><th>S&amp;P500 배수</th><th>평가액</th></tr>";
+  [5, 10, 20, 30].forEach((n) => {
+    const a = result(SER.KOSPI, yearsAgo(SER.KOSPI, n), amt), b = result(SER.SP500, yearsAgo(SER.SP500, n), amt);
+    h += `<tr><td>${n}년 전</td><td>${a ? times(a.mult) : "-"}</td><td>${a ? won(a.value) : "-"}</td><td>${b ? times(b.mult) : "-"}</td><td>${b ? won(b.value) : "-"}</td></tr>`;
+  });
+  $("tbl").innerHTML = h;
+  $("asof").textContent = `데이터 기준일: 코스피 ${SER.KOSPI.end}, S&P500 ${SER.SP500.end} 종가.`;
+}
+$("start").addEventListener("input", calc);
+$("start").addEventListener("change", calc);
+$("amt").addEventListener("input", calc);
+setIndex("KOSPI");
+</script>
+</body>
+</html>
