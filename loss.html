@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>손실 회복 계산기 - 읽고 검증하는 도구</title>
+<meta name="description" content="-30% 손실을 만회하려면 몇 % 올라야 하는지, 연 수익률 기준 회복에 몇 년 걸리는지 계산합니다. 하락률과 필요한 상승률의 비대칭을 표로 확인하세요.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="site"><a href="./">← 도구 목록</a><a href="https://readtest.tistory.com/">읽고 검증하는 노트</a></header>
+  <h1>손실 회복 계산기</h1>
+  <p class="lead">-50%가 나면 +50%가 아니라 +100%가 올라야 본전입니다. 하락률(또는 원금과 현재 금액)을 넣으면 본전까지 필요한 상승률과, 연 수익률로 회복하는 데 걸리는 기간을 알려줍니다.</p>
+
+  <div class="tabs" role="group" aria-label="입력 방식">
+    <button type="button" id="m1" aria-pressed="true">하락률로 입력</button>
+    <button type="button" id="m2" aria-pressed="false">원금·현재 금액으로 입력</button>
+  </div>
+
+  <div class="card">
+    <div class="grid">
+      <div id="boxD"><label for="drop">하락률</label><input id="drop" type="number" inputmode="decimal" value="30" step="1" min="0.1" max="99.9"><div class="unit">% (30 = 고점 대비 -30%)</div></div>
+      <div id="boxP" hidden><label for="orig">원금(또는 고점 금액)</label><input id="orig" type="number" inputmode="decimal" value="10000000" step="100000"><div class="unit">원</div></div>
+      <div id="boxC" hidden><label for="cur">현재 금액</label><input id="cur" type="number" inputmode="decimal" value="7000000" step="100000"><div class="unit">원</div></div>
+      <div><label for="rate">앞으로 기대하는 연 수익률</label><input id="rate" type="number" inputmode="decimal" value="7" step="0.5"><div class="unit">% (복리, 매년 같다고 가정)</div></div>
+      <div><label for="add">매년 추가로 넣는 금액 <small>(선택)</small></label><input id="add" type="number" inputmode="decimal" value="0" step="100000" min="0"><div class="unit">원 · 0이면 추가 납입 없음. 금액 입력 방식에서만 반영</div></div>
+    </div>
+  </div>
+
+  <div class="card" id="out"></div>
+
+  <h2>하락률별 필요한 상승률 표</h2>
+  <div class="card scroll"><table id="tbl"></table></div>
+
+  <p class="note">필요한 상승률은 <b>1 ÷ (1 − 하락률) − 1</b> 입니다. 하락이 클수록 필요한 상승률이 기하급수적으로 커집니다. 회복 기간은 매년 같은 수익률이 이어진다는 가정이며, 실제로는 하락장이 길게 이어지거나 반등이 빠르게 오는 등 편차가 큽니다. 배당·세금·수수료는 반영하지 않았습니다.</p>
+
+  <section id="faq"><h2>자주 묻는 질문</h2><div class="card"><details><summary>-50%에서 +50%를 오르면 왜 본전이 아닌가요?</summary><p>100만 원이 -50%면 50만 원이고, 여기서 +50%는 75만 원입니다. 50만 원이 100만 원이 되려면 +100%가 필요합니다. 상승률은 줄어든 금액을 기준으로 계산되기 때문입니다.</p></details><details><summary>회복 기간이 실제와 다를 수 있나요?</summary><p>이 값은 매년 일정한 수익률을 가정한 단순 계산입니다. 실제 지수는 회복까지 몇 년 만에 끝나기도, 10년 넘게 걸리기도 했습니다. 같은 평균 수익률이라도 변동이 크면 결과가 달라집니다.</p></details><details><summary>추가로 돈을 넣으면 회복이 빨라지나요?</summary><p>네. 하락한 가격에 더 사면 같은 금액으로 더 많은 수량이 모입니다. 금액 입력 방식에서 매년 추가 금액을 넣으면 그 효과를 반영해 계산합니다.</p></details><details><summary>레버리지 상품은 어떻게 되나요?</summary><p>변동성 때문에 지수가 본전으로 돌아와도 레버리지 상품은 본전이 아닐 수 있습니다. 이 계산기는 일반 자산 기준이며, 레버리지 영향은 레버리지 ETF 적립 시뮬레이터에서 확인하세요.</p></details></div></section>
+  <footer>투자 권유가 아닌 교육용 계산 도구입니다. 계산 결과의 정확성을 보장하지 않으며, 투자 판단과 책임은 본인에게 있습니다.</footer>
+</div>
+<script src="common.js"></script>
+<script>
+let mode = 1;
+function setMode(m) {
+  mode = m;
+  $("m1").setAttribute("aria-pressed", m === 1);
+  $("m2").setAttribute("aria-pressed", m === 2);
+  $("boxD").hidden = m !== 1;
+  $("boxP").hidden = m !== 2;
+  $("boxC").hidden = m !== 2;
+  calc();
+}
+$("m1").onclick = () => setMode(1);
+$("m2").onclick = () => setMode(2);
+
+// 하락률 d(0~1) → 본전에 필요한 상승률
+function need(d) { return 1 / (1 - d) - 1; }
+
+// 현재 금액 cur에서 매년 말 add를 넣으며 연 수익률 r로 굴려 목표 goal에 처음 닿는 시점(년, 소수). 닿지 못하면 null
+function yearsToGoal(cur, goal, r, add) {
+  if (cur >= goal) return 0;
+  if (r <= 0 && add <= 0) return null;
+  let v = cur;
+  for (let y = 1; y <= 200; y++) {
+    const nv = v * (1 + r) + add;
+    if (nv >= goal) {
+      // 해당 연도 안에서 선형 보간
+      return y - 1 + (goal - v) / (nv - v);
+    }
+    v = nv;
+  }
+  return null;
+}
+
+function fmtYears(y) {
+  if (y === null) return "회복 어려움";
+  if (y === 0) return "이미 회복";
+  if (y < 1) return Math.max(1, Math.round(y * 12)) + "개월";
+  return y.toFixed(1) + "년";
+}
+
+function calc() {
+  const r = num("rate", 7) / 100;
+  const add = Math.max(num("add", 0), 0);
+  let d, orig = null, cur = null;
+  if (mode === 1) {
+    d = num("drop", 30) / 100;
+  } else {
+    orig = num("orig", 0); cur = num("cur", 0);
+    if (!(orig > 0) || !(cur > 0)) { $("out").innerHTML = '<span class="warn">원금과 현재 금액을 0보다 크게 넣어주세요.</span>'; table(r); return; }
+    d = 1 - cur / orig;
+  }
+  if (!(d > 0)) {
+    $("out").innerHTML = mode === 1 ? '<span class="warn">0보다 큰 하락률을 넣어주세요.</span>' : '<div class="big">이미 원금 이상입니다 <small>(현재 금액이 원금보다 큽니다)</small></div>';
+    table(r); return;
+  }
+  if (d >= 1) { $("out").innerHTML = '<span class="warn">하락률은 100% 미만이어야 합니다.</span>'; table(r); return; }
+  const nd = need(d);
+  let html = `<div class="big">+${(nd * 100).toFixed(1)}% <small>(-${(d * 100).toFixed(1)}%에서 본전까지 필요한 상승률)</small></div>
+    <div class="kpis" style="margin-top:12px">
+      <div class="kpi"><div class="t">같은 폭으로 오르면</div><div class="v">+${(d * 100).toFixed(1)}% → ${((1 - d) * (1 + d) * 100).toFixed(1)}%</div></div>
+      <div class="kpi"><div class="t">본전까지 배수</div><div class="v">${times(1 / (1 - d))}</div></div>`;
+  if (mode === 1) {
+    const y = r > 0 ? Math.log(1 / (1 - d)) / Math.log(1 + r) : null;
+    html += `<div class="kpi"><div class="t">회복까지 (연 ${pct(r)})</div><div class="v">${fmtYears(y)}</div></div></div>`;
+  } else {
+    const y = yearsToGoal(cur, orig, r, add);
+    html += `<div class="kpi"><div class="t">회복까지 (연 ${pct(r)}${add > 0 ? ", 매년 +" + won(add) : ""})</div><div class="v">${fmtYears(y)}</div></div>
+      <div class="kpi"><div class="t">필요한 금액 증가</div><div class="v">${won(orig - cur)}</div></div></div>`;
+  }
+  $("out").innerHTML = html;
+  table(r);
+}
+
+function table(r) {
+  const rows = [5, 10, 15, 20, 25, 30, 40, 50, 60, 70, 80, 90];
+  let h = "<tr><th>하락률</th><th>필요한 상승률</th><th>연 " + pct(r) + "로 회복</th></tr>";
+  rows.forEach((p) => {
+    const d = p / 100;
+    const y = r > 0 ? Math.log(1 / (1 - d)) / Math.log(1 + r) : null;
+    h += `<tr><td>-${p}%</td><td>+${(need(d) * 100).toFixed(1)}%</td><td>${y === null ? "-" : fmtYears(y)}</td></tr>`;
+  });
+  $("tbl").innerHTML = h;
+}
+bind(["drop", "orig", "cur", "rate", "add"], calc);
+</script>
+<script data-goatcounter="https://readntest.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body>
+</html>

@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>파산 확률 시뮬레이터 - 읽고 검증하는 도구</title>
+<meta name="description" content="승률, 손익비, 1회 베팅 비중을 넣으면 거래를 반복했을 때 계좌가 일정 수준 이하로 무너질 확률을 몬테카를로로 계산합니다. 같은 전략도 비중에 따라 결과가 크게 달라집니다.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="site"><a href="./">← 도구 목록</a><a href="https://readtest.tistory.com/">읽고 검증하는 노트</a></header>
+  <h1>파산 확률 시뮬레이터</h1>
+  <p class="lead">승률과 손익비가 같아도 한 번에 거는 비중이 크면 계좌가 무너질 수 있습니다. 거래를 수천 번 가상으로 반복해 파산 확률, 최종 자산 분포, 최대 낙폭을 계산합니다.</p>
+
+  <div class="card">
+    <div class="grid">
+      <div><label for="win">승률</label><input id="win" type="number" inputmode="decimal" value="40" step="1" min="0" max="100"><div class="unit">%</div></div>
+      <div><label for="rr">손익비</label><input id="rr" type="number" inputmode="decimal" value="2" step="0.1" min="0.1"><div class="unit">평균 이익 ÷ 평균 손실 (2 = 이익이 손실의 2배)</div></div>
+      <div><label for="risk">1회 손실 폭(계좌 대비)</label><input id="risk" type="number" inputmode="decimal" value="2" step="0.5" min="0.1" max="100"><div class="unit">% · 손절 시 계좌에서 잃는 비율</div></div>
+      <div><label for="n">거래 횟수</label><input id="n" type="number" inputmode="decimal" value="200" step="50" min="1" max="5000"><div class="unit">회 (최대 5,000)</div></div>
+      <div><label for="ruin">파산 기준</label><input id="ruin" type="number" inputmode="decimal" value="50" step="5" min="1" max="100"><div class="unit">% · 시작 자본 대비 이만큼 잃으면 파산</div></div>
+      <div><label for="cost">거래당 비용 <small>(선택)</small></label><input id="cost" type="number" inputmode="decimal" value="0" step="0.05" min="0"><div class="unit">% · 거래 1회마다 계좌에서 빠지는 수수료·슬리피지</div></div>
+      <div><label for="sizing">베팅 방식</label><select id="sizing"><option value="c">복리: 현재 자본 기준</option><option value="f">고정: 시작 자본 기준</option></select><div class="unit">복리는 이익이 쌓이면 베팅도 커집니다</div></div>
+    </div>
+  </div>
+
+  <div class="card" id="out"></div>
+
+  <h2>샘플 경로 40개</h2>
+  <div class="card"><canvas id="cv" width="700" height="260" style="width:100%;height:auto;display:block" aria-label="자본 변화 샘플 경로"></canvas><div class="unit" id="cvnote"></div></div>
+
+  <h2>1회 손실 폭에 따른 파산 확률</h2>
+  <div class="card scroll"><table id="tbl"></table></div>
+
+  <p class="note">거래마다 서로 독립이고 승률·손익비가 변하지 않는다고 가정한 시뮬레이션입니다. 실제 매매는 연속 손실이 몰리거나 전략이 약해지는 구간이 있어 이 값보다 나쁠 수 있습니다. 같은 입력이면 같은 결과가 나오도록 난수 시드를 고정했습니다. 오차는 시행 수에 따라 ±1%p 안팎입니다.</p>
+
+  <section id="faq"><h2>자주 묻는 질문</h2><div class="card"><details><summary>기대값이 플러스면 안전한 것 아닌가요?</summary><p>아닙니다. 기대값이 플러스여도 비중이 크면 초반 연속 손실로 계좌가 파산 기준 아래로 내려갈 수 있습니다. 한 번 크게 잃으면 같은 비율로 올라도 회복되지 않습니다.</p></details><details><summary>1회 손실 폭은 어떻게 정하나요?</summary><p>손절폭(%)에 투입 비중(%)을 곱한 값입니다. 예를 들어 계좌의 25%를 넣고 -8%에 손절하면 1회 손실 폭은 2%입니다.</p></details><details><summary>파산 기준 50%는 왜 기본인가요?</summary><p>-50%에서 본전으로 돌아오려면 +100%가 필요해 사실상 회복이 어려운 수준으로 보았습니다. 자신의 기준으로 바꿔 보세요. 100%로 두면 계좌가 완전히 0에 가까워지는 확률입니다.</p></details><details><summary>복리와 고정 베팅의 차이는?</summary><p>복리는 현재 자본의 일정 비율을 베팅해 이익이 늘수록 금액도 커지고, 고정은 시작 자본 기준 금액을 계속 씁니다. 고정은 성장이 느리지만 큰 낙폭이 덜 생깁니다.</p></details></div></section>
+  <footer>투자 권유가 아닌 교육용 계산 도구입니다. 결과는 가정에 따른 모의 계산이며 실제 성과를 보장하지 않습니다. 투자 판단과 책임은 본인에게 있습니다.</footer>
+</div>
+<script src="common.js"></script>
+<script>
+// 시드 고정 난수(mulberry32). 같은 입력이면 같은 결과가 나온다.
+function rng(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// p: 승률, R: 손익비, f: 1회 손실 폭(계좌 대비 비율), n: 거래 수, ruin: 파산 기준(비율), cost: 거래당 비용(계좌 대비 비율), compound: 복리 여부
+// 반환: 파산 확률, 최종 자본 배열, 최대 낙폭 배열, 최대 연속 손실 배열, 샘플 경로
+function simulate(p, R, f, n, ruin, cost, compound, paths, seed, keep) {
+  const rand = rng(seed);
+  const floor = 1 - ruin;
+  let ruined = 0;
+  const finals = new Float64Array(paths), mdds = new Float64Array(paths), streaks = new Int32Array(paths);
+  const samples = [];
+  for (let k = 0; k < paths; k++) {
+    let eq = 1, peak = 1, mdd = 0, hit = false, run = 0, maxRun = 0;
+    const path = k < keep ? [1] : null;
+    for (let i = 0; i < n; i++) {
+      const base = compound ? eq : 1;
+      if (rand() < p) { eq += base * f * R; run = 0; }
+      else { eq -= base * f; run++; if (run > maxRun) maxRun = run; }
+      eq -= base * cost;
+      if (eq > peak) peak = eq;
+      const dd = 1 - eq / peak;
+      if (dd > mdd) mdd = dd;
+      if (eq <= floor + 1e-9) hit = true;   // 부동소수 오차로 경계값이 빠지지 않게 여유
+      if (eq < 0) eq = 0;
+      if (path) path.push(eq);
+    }
+    if (hit) ruined++;
+    finals[k] = eq; mdds[k] = mdd; streaks[k] = maxRun;
+    if (path) samples.push({ path, hit });
+  }
+  return { prob: ruined / paths, finals, mdds, streaks, samples };
+}
+
+function quant(arr, q) {
+  const a = Array.from(arr).sort((x, y) => x - y);
+  return a[Math.min(a.length - 1, Math.floor(q * a.length))];
+}
+
+function readInputs() {
+  return {
+    p: Math.min(Math.max(num("win", 40), 0), 100) / 100,
+    R: Math.max(num("rr", 2), 0.01),
+    f: Math.min(Math.max(num("risk", 2), 0.01), 100) / 100,
+    n: Math.min(Math.max(Math.round(num("n", 200)), 1), 5000),
+    ruin: Math.min(Math.max(num("ruin", 50), 1), 100) / 100,
+    cost: Math.max(num("cost", 0), 0) / 100,
+    compound: $("sizing").value === "c",
+  };
+}
+
+function calc() {
+  const a = readInputs();
+  const ev = a.p * a.R - (1 - a.p) - a.cost / a.f;   // 거래당 기대값(R 단위: 1R = 1회 손실)
+  const be = 1 / (1 + a.R);                          // 손익분기 승률
+  const s = simulate(a.p, a.R, a.f, a.n, a.ruin, a.cost, a.compound, 4000, 12345, 40);
+  const med = quant(s.finals, 0.5), lo = quant(s.finals, 0.05), hi = quant(s.finals, 0.95);
+  const mdd = quant(s.mdds, 0.5), mdd95 = quant(s.mdds, 0.95);
+  const streak = quant(s.streaks, 0.5), streak95 = quant(s.streaks, 0.95);
+  const prob = s.prob;
+  const cls = prob >= 0.2 ? "warn" : "";
+  $("out").innerHTML = `<div class="big ${cls}">파산 확률 ${(prob * 100).toFixed(1)}% <small>(${a.n}회 안에 계좌가 -${(a.ruin * 100).toFixed(0)}% 이하로 내려갈 확률)</small></div>
+    <div class="kpis" style="margin-top:12px">
+      <div class="kpi"><div class="t">거래당 기대값</div><div class="v">${ev >= 0 ? "+" : ""}${ev.toFixed(2)}R</div></div>
+      <div class="kpi"><div class="t">손익분기 승률</div><div class="v">${pct(be)}</div></div>
+      <div class="kpi"><div class="t">최종 자본 중앙값</div><div class="v">${(med * 100).toFixed(0)}% <small style="font-size:13px;font-weight:500;color:var(--muted)">(시작=100%)</small></div></div>
+      <div class="kpi"><div class="t">최종 자본 하위 5% ~ 상위 5%</div><div class="v">${(lo * 100).toFixed(0)}% ~ ${(hi * 100).toFixed(0)}%</div></div>
+      <div class="kpi"><div class="t">최대 낙폭 (중앙값 / 나쁜 5%)</div><div class="v">-${(mdd * 100).toFixed(0)}% / -${(mdd95 * 100).toFixed(0)}%</div></div>
+      <div class="kpi"><div class="t">최대 연속 손실 (중앙값 / 나쁜 5%)</div><div class="v">${streak}회 / ${streak95}회</div></div>
+    </div>
+    ${ev <= 0 ? '<p class="warn" style="margin:12px 0 0">기대값이 0 이하입니다. 거래를 반복할수록 계좌가 줄어드는 조건입니다.</p>' : ""}`;
+  draw(s.samples, a);
+  table(a);
+}
+
+function draw(samples, a) {
+  const cv = $("cv"), c = cv.getContext("2d");
+  const W = cv.width, H = cv.height, pad = 28;
+  const css = getComputedStyle(document.documentElement);
+  const col = (n) => css.getPropertyValue(n).trim();
+  c.clearRect(0, 0, W, H);
+  let ymax = 1.5;
+  samples.forEach((s) => s.path.forEach((v) => { if (v > ymax) ymax = v; }));
+  ymax = Math.min(ymax, 6);
+  const X = (i) => pad + (W - pad - 8) * i / a.n;
+  const Y = (v) => H - pad - (H - pad - 10) * Math.min(v, ymax) / ymax;
+  c.lineWidth = 1; c.font = "12px sans-serif"; c.fillStyle = col("--muted"); c.strokeStyle = col("--line");
+  [0, 0.5, 1, 2, 4].forEach((v) => {
+    if (v > ymax) return;
+    c.beginPath(); c.moveTo(pad, Y(v)); c.lineTo(W - 8, Y(v)); c.stroke();
+    c.fillText(Math.round(v * 100) + "%", 0, Y(v) + 4);
+  });
+  // 파산 기준선
+  c.strokeStyle = col("--warn"); c.setLineDash([5, 4]);
+  c.beginPath(); c.moveTo(pad, Y(1 - a.ruin)); c.lineTo(W - 8, Y(1 - a.ruin)); c.stroke(); c.setLineDash([]);
+  const step = Math.max(1, Math.floor(a.n / 400));
+  samples.forEach((s) => {
+    c.strokeStyle = s.hit ? col("--warn") : col("--accent");
+    c.globalAlpha = 0.5; c.lineWidth = 1.2;
+    c.beginPath();
+    for (let i = 0; i <= a.n; i += step) { const x = X(i), y = Y(s.path[i]); i === 0 ? c.moveTo(x, y) : c.lineTo(x, y); }
+    c.lineTo(X(a.n), Y(s.path[a.n]));
+    c.stroke();
+  });
+  c.globalAlpha = 1;
+  const hits = samples.filter((s) => s.hit).length;
+  $("cvnote").textContent = `파란선은 기준선을 지키며 끝난 경로, 주황선은 중간에 파산 기준 아래로 내려간 경로(${samples.length}개 중 ${hits}개). 점선이 파산 기준입니다. 세로축은 시작 자본 100%.`;
+}
+
+function table(a) {
+  const fs = [0.5, 1, 2, 3, 5, 10, 20].map((x) => x / 100);
+  if (!fs.some((x) => Math.abs(x - a.f) < 1e-9)) { fs.push(a.f); fs.sort((x, y) => x - y); }
+  let h = "<tr><th>1회 손실 폭</th><th>파산 확률</th><th>최종 중앙값</th><th>낙폭 중앙값</th></tr>";
+  fs.forEach((f) => {
+    const s = simulate(a.p, a.R, f, a.n, a.ruin, a.cost, a.compound, 1500, 777, 0);
+    const cur = Math.abs(f - a.f) < 1e-9;
+    h += `<tr${cur ? ' style="font-weight:700"' : ""}><td>${(f * 100).toFixed(f < 0.01 ? 1 : 0)}%${cur ? " (입력값)" : ""}</td><td>${(s.prob * 100).toFixed(1)}%</td><td>${(quant(s.finals, 0.5) * 100).toFixed(0)}%</td><td>-${(quant(s.mdds, 0.5) * 100).toFixed(0)}%</td></tr>`;
+  });
+  $("tbl").innerHTML = h;
+}
+bind(["win", "rr", "risk", "n", "ruin", "cost", "sizing"], calc);
+</script>
+<script data-goatcounter="https://readntest.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body>
+</html>
