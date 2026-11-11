@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>포지션 사이징 계산기 - 읽고 검증하는 도구</title>
+<meta name="description" content="계좌 크기, 한 번에 감수할 손실 %, 진입가와 손절가를 넣으면 몇 주를 사야 하는지, 계좌의 몇 %를 투입하는지 계산합니다. 수수료와 슬리피지, 손익비도 함께 보여줍니다.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="site"><a href="./">← 도구 목록</a><a href="https://readtest.tistory.com/">읽고 검증하는 노트</a></header>
+  <h1>포지션 사이징 계산기</h1>
+  <p class="lead">"얼마를 살까"를 금액이 아니라 "손절하면 계좌의 몇 %를 잃을까"로 정합니다. 손절가를 먼저 정하면 살 수 있는 수량이 정해집니다.</p>
+
+  <div class="card">
+    <div class="grid">
+      <div><label for="acct">계좌 규모</label><input id="acct" type="number" inputmode="decimal" value="10000000" step="1000000" min="0"><div class="unit">원 (달러면 달러 단위로 같게 입력)</div></div>
+      <div><label for="risk">1회 허용 손실</label><input id="risk" type="number" inputmode="decimal" value="1" step="0.25" min="0.01" max="100"><div class="unit">% · 손절 시 계좌에서 잃을 비율</div></div>
+      <div><label for="entry">진입가</label><input id="entry" type="number" inputmode="decimal" value="50000" step="any" min="0"><div class="unit">1주당 가격</div></div>
+      <div><label for="stop">손절가</label><input id="stop" type="number" inputmode="decimal" value="46000" step="any" min="0"><div class="unit">진입가보다 낮으면 매수, 높으면 공매도로 계산</div></div>
+      <div><label for="target">목표가 <small>(선택)</small></label><input id="target" type="number" inputmode="decimal" value="" step="any" min="0" placeholder="비우면 계산 안 함"><div class="unit">손익비·목표 도달 시 이익 계산</div></div>
+      <div><label for="cost">왕복 비용 <small>(선택)</small></label><input id="cost" type="number" inputmode="decimal" value="0.3" step="0.05" min="0"><div class="unit">% · 수수료·세금·슬리피지, 매수금액 대비</div></div>
+    </div>
+  </div>
+
+  <div class="card" id="out"></div>
+
+  <h2>손절폭별 투입 비중 표 (허용 손실 <span id="rk">1</span>%일 때)</h2>
+  <div class="card scroll"><table id="tbl"></table></div>
+
+  <p class="note">수량 = (계좌 × 허용 손실%) ÷ (진입가와 손절가의 차이 + 1주당 비용). 손절폭이 좁을수록 많이 살 수 있지만, 지나치게 좁은 손절은 시장의 평범한 흔들림에도 걸립니다. 갭하락이나 호가 공백이 있으면 손절가에서 체결되지 않아 실제 손실이 더 클 수 있습니다. 소수점 수량이 안 되는 시장이라 수량은 내림합니다.</p>
+
+  <section id="faq"><h2>자주 묻는 질문</h2><div class="card"><details><summary>허용 손실은 몇 %가 적당한가요?</summary><p>정답은 없지만 한 번에 계좌의 1~2%를 넘기지 않는 방식이 흔히 쓰입니다. 같은 전략도 허용 손실이 커지면 연속 손실에서 계좌가 크게 줄어듭니다. 파산 확률 시뮬레이터에서 직접 비교해 보세요.</p></details><details><summary>투입 비중이 100%를 넘으면요?</summary><p>손절폭이 아주 좁거나 허용 손실이 클 때 나옵니다. 계좌보다 큰 금액이 필요하다는 뜻이라 레버리지·신용이 필요합니다. 이 경우 허용 손실을 줄이거나 손절폭을 넓히는 쪽을 검토하세요.</p></details><details><summary>왕복 비용은 어떻게 넣나요?</summary><p>매수와 매도 수수료, 거래세, 예상 슬리피지를 합한 값을 매수금액 대비 %로 넣습니다. 비용이 들어가면 1주당 위험이 커져 살 수 있는 수량이 줄어듭니다.</p></details><details><summary>공매도도 되나요?</summary><p>손절가를 진입가보다 높게 넣으면 공매도로 보고 같은 식으로 계산합니다. 이 경우 투입 금액은 팔아야 하는 금액입니다.</p></details></div><h2>관련 도구</h2><div class="card related"><a href="ruin.html">파산 확률 시뮬레이터</a> <a href="loss.html">손실 회복 계산기</a> <a href="breakout-game/">돌파 매매 시뮬레이터</a></div></section>
+  <footer>투자 권유가 아닌 교육용 계산 도구입니다. 계산 결과의 정확성을 보장하지 않으며, 투자 판단과 책임은 본인에게 있습니다.</footer>
+</div>
+<script src="common.js"></script>
+<script>
+// 1주당 위험 = |진입 − 손절| + 진입가 × 왕복비용
+function perShare(entry, stop, cost) { return Math.abs(entry - stop) + entry * cost; }
+
+function qtyFor(acct, riskPct, entry, stop, cost) {
+  const ps = perShare(entry, stop, cost);
+  if (!(ps > 0)) return null;
+  return Math.floor((acct * riskPct) / ps + 1e-9);
+}
+
+const exact = (x) => Math.round(x).toLocaleString("ko-KR") + "원";
+
+function calc() {
+  const acct = num("acct", 0), rp = num("risk", 1) / 100, entry = num("entry", 0), stop = num("stop", 0);
+  const cost = Math.max(num("cost", 0), 0) / 100;
+  const tgt = $("target").value === "" ? null : num("target", null);
+  $("rk").textContent = (rp * 100).toString();
+  if (!(acct > 0) || !(entry > 0) || !(stop > 0) || !(rp > 0)) { $("out").innerHTML = '<span class="warn">계좌, 허용 손실, 진입가, 손절가를 0보다 크게 넣어주세요.</span>'; table(rp, cost); return; }
+  if (entry === stop) { $("out").innerHTML = '<span class="warn">손절가가 진입가와 같습니다.</span>'; table(rp, cost); return; }
+  const short = stop > entry;
+  const ps = perShare(entry, stop, cost);
+  const budget = acct * rp;
+  const q = qtyFor(acct, rp, entry, stop, cost);
+  const amt = q * entry, w = amt / acct;
+  const realRisk = q * ps;
+  const stopPct = Math.abs(entry - stop) / entry;
+  let html = `<div class="big">${q.toLocaleString("ko-KR")}주 <small>(${short ? "공매도" : "매수"} · 투입 ${won(amt)}, 계좌의 ${(w * 100).toFixed(1)}%)</small></div>
+    <div class="kpis" style="margin-top:12px">
+      <div class="kpi"><div class="t">손절 시 손실(비용 포함)</div><div class="v">${exact(realRisk)}</div></div>
+      <div class="kpi"><div class="t">계좌 대비 실제 손실</div><div class="v">${pct(realRisk / acct, 2)}</div></div>
+      <div class="kpi"><div class="t">손절폭</div><div class="v">${pct(stopPct, stopPct < 0.01 ? 2 : 1)}</div></div>`;
+  if (tgt !== null && tgt > 0 && ((!short && tgt > entry) || (short && tgt < entry))) {
+    const gain = q * Math.abs(tgt - entry) - q * entry * cost;
+    const rr = gain / (q * ps || 1);
+    html += `<div class="kpi"><div class="t">목표 도달 시 이익(비용 차감)</div><div class="v">${exact(gain)}</div></div>
+      <div class="kpi"><div class="t">손익비</div><div class="v">${rr.toFixed(2)} : 1</div></div>
+      <div class="kpi"><div class="t">손익분기 승률</div><div class="v">${pct(1 / (1 + rr))}</div></div>`;
+  } else if (tgt !== null && tgt > 0) {
+    html += '<div class="kpi"><div class="t">목표가</div><div class="v warn" style="font-size:15px">방향이 맞지 않습니다</div></div>';
+  }
+  html += "</div>";
+  if (q === 0) html += `<p class="warn" style="margin:12px 0 0">허용 손실 ${exact(budget)}로는 1주도 살 수 없습니다. 1주 손실이 ${exact(ps)}입니다.</p>`;
+  else if (w > 1) html += `<p class="warn" style="margin:12px 0 0">투입 금액이 계좌보다 큽니다(${(w * 100).toFixed(0)}%). 레버리지가 필요한 크기입니다.</p>`;
+  else if (stopPct < 0.02) html += '<p class="warn" style="margin:12px 0 0">손절폭이 2% 미만입니다. 평범한 가격 흔들림에 손절이 걸릴 수 있습니다.</p>';
+  $("out").innerHTML = html;
+  table(rp, cost);
+}
+
+function table(rp, cost) {
+  const rows = [2, 3, 5, 8, 10, 15, 20, 30];
+  let h = "<tr><th>손절폭</th><th>계좌 대비 투입 비중</th><th>비용 반영 투입 비중</th></tr>";
+  rows.forEach((s) => {
+    const sp = s / 100;
+    const w0 = rp / sp, w1 = rp / (sp + cost);
+    h += `<tr><td>-${s}%</td><td>${(w0 * 100).toFixed(1)}%</td><td>${(w1 * 100).toFixed(1)}%</td></tr>`;
+  });
+  $("tbl").innerHTML = h;
+}
+bind(["acct", "risk", "entry", "stop", "target", "cost"], calc);
+</script>
+<script data-goatcounter="https://readntest.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body>
+</html>

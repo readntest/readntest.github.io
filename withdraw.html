@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>인출 성공률 계산기 - 읽고 검증하는 도구</title>
+<meta name="description" content="은퇴 후 매년 자산의 몇 %씩 꺼내 쓰면 N년 동안 돈이 버티는지, 과거 S&P500 실제 수익률 순서를 모든 시작 시점에 적용해 성공률을 계산합니다. 4% 룰을 직접 확인하세요.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="site"><a href="./">← 도구 목록</a><a href="https://readtest.tistory.com/">읽고 검증하는 노트</a></header>
+  <h1>인출 성공률 계산기</h1>
+  <p class="lead">첫해에 자산의 몇 %를 꺼내고 이후 물가만큼 늘려 쓰면 돈이 몇 년 버틸까요? 과거 S&amp;P500의 실제 월별 수익률 순서를 매 시작 시점마다 그대로 적용해, 돈이 끝까지 남은 비율을 계산합니다.</p>
+
+  <div class="card">
+    <div class="grid">
+      <div><label for="rate">첫해 인출률</label><input id="rate" type="number" inputmode="decimal" value="4" step="0.25" min="0.1"><div class="unit">% · 시작 자산 대비. 이후 해마다 물가만큼 늘림</div></div>
+      <div><label for="years">인출 기간</label><input id="years" type="number" inputmode="decimal" value="30" step="1" min="1" max="45"><div class="unit">년</div></div>
+      <div><label for="stock">주식 비중</label><input id="stock" type="number" inputmode="decimal" value="75" step="5" min="0" max="100"><div class="unit">% · 나머지는 안전자산, 매월 비중 복원</div></div>
+      <div><label for="bond">안전자산 수익률</label><input id="bond" type="number" inputmode="decimal" value="3" step="0.5"><div class="unit">% · 연, 고정 가정</div></div>
+      <div><label for="div">주식 배당 수익률</label><input id="div" type="number" inputmode="decimal" value="2" step="0.25" min="0"><div class="unit">% · 가격지수에 더해 줌(지수 자료는 배당 제외)</div></div>
+      <div><label for="infl">물가상승률</label><input id="infl" type="number" inputmode="decimal" value="2.5" step="0.25"><div class="unit">% · 연, 고정 가정</div></div>
+    </div>
+  </div>
+
+  <div class="card" id="out"></div>
+
+  <h2>시작 연도별 결과</h2>
+  <div class="card"><div id="strip" style="display:flex;flex-wrap:wrap;gap:3px"></div><div class="unit" id="stripNote"></div></div>
+
+  <h2>인출률별 성공률 표 (같은 조건)</h2>
+  <div class="card scroll"><table id="tbl"></table></div>
+
+  <p class="note">S&amp;P500 1950년 1월~데이터 끝까지의 월말 가격지수를 사용했습니다. 시작 시점마다 처음 달부터 N년을 그대로 겪은 것으로 계산하며, 구간이 겹쳐서 독립된 표본 수는 겉보기 구간 수보다 훨씬 적습니다. <b>물가는 실제 기록이 아니라 고정 가정</b>이라 1970년대처럼 물가가 높았던 시기는 실제보다 낙관적으로 나옵니다. 배당도 실제 변동이 아니라 고정 가정입니다. 세금·수수료는 반영하지 않았습니다. 미국 주식 기록이며 한국 투자자의 환율·세금과는 다릅니다.</p>
+
+  <section id="faq"><h2>자주 묻는 질문</h2><div class="card"><details><summary>4% 룰은 무엇인가요?</summary><p>은퇴 첫해에 자산의 4%를 꺼내고, 이후 해마다 그 금액에 물가상승률만 더해 쓰면 30년은 버틴다는 경험칙입니다. 미국 주식·채권의 과거 기록으로 만들어졌습니다.</p></details><details><summary>성공은 어떻게 정의하나요?</summary><p>인출 기간이 끝날 때까지 자산이 0 아래로 내려가지 않으면 성공입니다. 중간에 많이 줄었다가 살아남은 경우도 성공에 포함되니 "시작 연도별 결과"와 최저 구간도 함께 보세요.</p></details><details><summary>가장 나빴던 시기는 언제인가요?</summary><p>결과 아래에 가장 나빴던 시작 시점이 표시됩니다. 은퇴 직후 큰 하락이 오면 같은 평균 수익률이라도 돈이 훨씬 빨리 줄어드는 수익률 순서 위험을 보여줍니다.</p></details><details><summary>한국 주식으로도 되나요?</summary><p>코스피 자료는 1996년부터라 30년 구간이 사실상 없습니다. 그래서 이 계산기는 기간이 긴 S&amp;P500 기록만 사용합니다.</p></details></div><h2>관련 글</h2><div class="card related"><a href="https://readtest.tistory.com/80">/80 장기 보유 손실 확률 150년</a> <a href="loss.html">손실 회복 계산기</a> <a href="ruin.html">파산 확률 시뮬레이터</a></div></section>
+  <footer>투자 권유가 아닌 교육용 계산 도구입니다. 과거 성과가 미래를 보장하지 않으며, 투자 판단과 책임은 본인에게 있습니다.</footer>
+</div>
+<script src="common.js"></script>
+<script src="index-data.js"></script>
+<script>
+const DAY = 86400000;
+// 압축 해제 후 월말 종가 배열 만들기 (S&P500)
+const MONTHS = (function () {
+  const d = INDEX_DATA.SP500, p = d.start.split("-").map(Number);
+  let day = Date.UTC(p[0], p[1] - 1, p[2]) / DAY;
+  const out = [];
+  let lastKey = null, lastV = null;
+  for (let i = 0; i < d.n; i++) {
+    if (i > 0) day += d.d[i];
+    const dt = new Date(day * DAY), key = dt.getUTCFullYear() * 12 + dt.getUTCMonth();
+    if (lastKey !== null && key !== lastKey) out.push({ key: lastKey, v: lastV });
+    lastKey = key; lastV = d.v[i];
+  }
+  out.push({ key: lastKey, v: lastV, partial: true });   // 마지막 달은 월말이 아닐 수 있어 수익률 계산에서 제외
+  return out;
+})();
+// 월 수익률(가격): 달 i의 월말 대비 달 i+1의 월말
+const MRET = [], MSTART = [];
+for (let i = 1; i < MONTHS.length - 1; i++) {   // 마지막(미완료) 달 제외
+  MRET.push(MONTHS[i].v / MONTHS[i - 1].v - 1);
+  MSTART.push(MONTHS[i].key);                    // 이 수익률이 속한 달
+}
+const iso = (k) => Math.floor(k / 12) + "-" + String((k % 12) + 1).padStart(2, "0");
+
+// 한 구간 시뮬레이션. 반환: {ok, endMult(시작 자산 대비), failMonth, minMult}
+function runWindow(rets, s, M, w0, sw, bm, dm, infl) {
+  let P = 1, minP = 1;
+  for (let m = 0; m < M; m++) {
+    P -= (w0 / 12) * Math.pow(1 + infl, Math.floor(m / 12));   // 월초 인출
+    if (P <= 1e-9) return { ok: false, endMult: 0, failMonth: m + 1, minMult: 0 };
+    const rs = (1 + rets[s + m]) * (1 + dm) - 1;
+    P *= sw * (1 + rs) + (1 - sw) * (1 + bm);
+    if (P < minP) minP = P;
+  }
+  return { ok: true, endMult: P, failMonth: null, minMult: minP };
+}
+
+function runAll(rets, M, w0, sw, bAnn, dAnn, infl) {
+  const bm = Math.pow(1 + bAnn, 1 / 12) - 1, dm = Math.pow(1 + dAnn, 1 / 12) - 1;
+  const res = [];
+  for (let s = 0; s + M <= rets.length; s++) res.push(runWindow(rets, s, M, w0, sw, bm, dm, infl));
+  return res;
+}
+
+function readIn() {
+  return {
+    w0: Math.max(num("rate", 4), 0.01) / 100,
+    y: Math.min(Math.max(Math.round(num("years", 30)), 1), 45),
+    sw: Math.min(Math.max(num("stock", 75), 0), 100) / 100,
+    b: num("bond", 3) / 100, d: Math.max(num("div", 2), 0) / 100, i: num("infl", 2.5) / 100,
+  };
+}
+
+function median(a) { const s = a.slice().sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; }
+
+function calc() {
+  const a = readIn(), M = a.y * 12;
+  const res = runAll(MRET, M, a.w0, a.sw, a.b, a.d, a.i);
+  if (!res.length) { $("out").innerHTML = '<span class="warn">기간이 길어 계산할 구간이 없습니다.</span>'; return; }
+  const okN = res.filter((r) => r.ok).length, rate = okN / res.length;
+  let worst = 0;  // 가장 먼저 바닥난 구간(실패 중 failMonth 최소) 또는 최저 잔액
+  let wi = -1;
+  res.forEach((r, i) => {
+    if (wi < 0) { wi = i; return; }
+    const w = res[wi];
+    const better = r.ok === w.ok ? (r.ok ? r.minMult < w.minMult : r.failMonth < w.failMonth) : !r.ok;
+    if (better) wi = i;
+  });
+  const W = res[wi];
+  const endOk = res.filter((r) => r.ok).map((r) => r.endMult);
+  const safe = safeRate(a, M);
+  const cls = rate < 0.9 ? "warn" : "";
+  $("out").innerHTML = `<div class="big ${cls}">성공률 ${(rate * 100).toFixed(1)}% <small>(${res.length}개 시작월 중 ${okN}개, 시작 ${iso(MSTART[0])} ~ ${iso(MSTART[res.length - 1])})</small></div>
+    <div class="kpis" style="margin-top:12px">
+      <div class="kpi"><div class="t">가장 나빴던 시작 시점</div><div class="v">${iso(MSTART[wi])}</div></div>
+      <div class="kpi"><div class="t">그 구간 결과</div><div class="v">${W.ok ? "생존, 최저 " + (W.minMult * 100).toFixed(0) + "%" : Math.floor(W.failMonth / 12) + "년 " + (W.failMonth % 12) + "개월 만에 소진"}</div></div>
+      <div class="kpi"><div class="t">성공한 구간의 최종 자산 중앙값</div><div class="v">${endOk.length ? (median(endOk) * 100).toFixed(0) + "%" : "-"} <small style="font-size:13px;font-weight:500;color:var(--muted)">(시작 100%, 명목)</small></div></div>
+      <div class="kpi"><div class="t">전 구간 성공한 최대 첫해 인출률</div><div class="v">${(safe * 100).toFixed(2)}%</div></div>
+    </div>`;
+  strip(res);
+  table(a, M);
+}
+
+// 모든 구간이 성공하는 최대 인출률(이분 탐색, 0.05% 단위)
+function safeRate(a, M) {
+  let lo = 0.001, hi = 0.2;
+  const allOk = (w) => runAll(MRET, M, w, a.sw, a.b, a.d, a.i).every((r) => r.ok);
+  if (!allOk(lo)) return 0;
+  for (let k = 0; k < 20; k++) { const mid = (lo + hi) / 2; if (allOk(mid)) lo = mid; else hi = mid; }
+  return lo;
+}
+
+function strip(res) {
+  // 해마다 1월 시작 구간을 색칠 (월별은 너무 많아 해당 연도 1월을 대표로 표시)
+  let h = "";
+  let ny = 0, nok = 0;
+  res.forEach((r, i) => {
+    const k = MSTART[i];
+    if (k % 12 !== 0) return;
+    ny++; if (r.ok) nok++;
+    const col = r.ok ? (r.minMult < 0.5 ? "var(--warn)" : "var(--good)") : "#c0392b";
+    h += `<span title="${Math.floor(k / 12)}년 1월 시작: ${r.ok ? "생존, 최저 " + (r.minMult * 100).toFixed(0) + "%" : Math.floor(r.failMonth / 12) + "년 " + (r.failMonth % 12) + "개월에 소진"}" style="width:11px;height:22px;border-radius:2px;background:${col};display:block"></span>`;
+  });
+  $("strip").innerHTML = h;
+  $("stripNote").textContent = `연도마다 1월에 은퇴했다면(${ny}개). 초록: 끝까지 생존, 주황: 생존했지만 중간에 시작 자산의 절반 아래로 하락, 빨강: 자산 소진. 칸에 마우스를 올리면 자세한 내용이 나옵니다.`;
+}
+
+function table(a, M) {
+  const rates = [3, 3.5, 4, 4.5, 5, 6, 7];
+  const cur = a.w0 * 100;
+  if (!rates.some((x) => Math.abs(x - cur) < 1e-9)) { rates.push(cur); rates.sort((x, y) => x - y); }
+  let h = "<tr><th>첫해 인출률</th><th>성공률</th><th>최종 자산 중앙값</th></tr>";
+  rates.forEach((x) => {
+    const r = runAll(MRET, M, x / 100, a.sw, a.b, a.d, a.i);
+    const ok = r.filter((z) => z.ok);
+    const isCur = Math.abs(x - cur) < 1e-9;
+    h += `<tr${isCur ? ' style="font-weight:700"' : ""}><td>${x}%${isCur ? " (입력값)" : ""}</td><td>${(ok.length / r.length * 100).toFixed(1)}%</td><td>${ok.length ? (median(ok.map((z) => z.endMult)) * 100).toFixed(0) + "%" : "-"}</td></tr>`;
+  });
+  $("tbl").innerHTML = h;
+}
+bind(["rate", "years", "stock", "bond", "div", "infl"], calc);
+</script>
+<script data-goatcounter="https://readntest.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body>
+</html>
