@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>연속 손실 체험 게임</title>
+<meta name="description" content="기대값이 플러스인 전략도 연패는 옵니다. 승률 40% 전략을 거래 하나씩 직접 따라가며 연속 손실 앞에서 규칙을 지킬 수 있는지 체험하고, 규칙대로 갔을 때와 비교합니다.">
+<style>
+:root{color-scheme:dark;--bg:#0f1318;--card:#181e26;--line:#2a323d;--tx:#e8edf3;--sub:#8f9bab;--acc:#4da3ff;--good:#3ecf8e;--bad:#ff6b6b;--warn:#f5b84a}
+@media (prefers-color-scheme:light){:root:not([data-theme=dark]){--bg:#f2f4f7;--card:#fff;--line:#d9dee5;--tx:#16202b;--sub:#5d6978;--acc:#1b6fd1;--good:#12915b;--bad:#d03b3b;--warn:#b57a0a;color-scheme:light}}
+:root[data-theme=light]{--bg:#f2f4f7;--card:#fff;--line:#d9dee5;--tx:#16202b;--sub:#5d6978;--acc:#1b6fd1;--good:#12915b;--bad:#d03b3b;--warn:#b57a0a;color-scheme:light}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 -apple-system,"Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif}
+.wrap{max-width:560px;margin:0 auto;padding-block:12px 28px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1{font-size:18px;margin:4px 0 2px}
+.sub{color:var(--sub);font-size:13px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin:10px 0}
+.row{display:flex;gap:8px;align-items:center}.row.sp{justify-content:space-between}
+button{font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer}
+button:active{transform:scale(.98)}button:disabled{opacity:.45}
+button.pri{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:600}
+button.on{outline:2px solid var(--acc)}
+.grow{flex:1}
+.seg{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}.seg button{padding:8px 12px;font-size:14px}
+canvas{width:100%;display:block;border-radius:8px;background:var(--bg)}
+.good{color:var(--good)}.bad{color:var(--bad)}.warn{color:var(--warn)}
+.hide{display:none!important}
+.chips{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:8px}
+.chip{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:6px 10px;font-size:13px}
+.chip b{display:block;font-size:16px}
+.big{font-size:22px;font-weight:700}
+table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:5px 4px;text-align:right;border-bottom:1px solid var(--line)}td:first-child,th:first-child{text-align:left}
+.coach{margin-top:8px;padding:8px 10px;border-radius:10px;background:var(--bg);border:1px solid var(--line);font-size:14px;line-height:1.55}
+.dots{display:flex;flex-wrap:wrap;gap:3px;margin-top:8px}
+.dots i{width:12px;height:12px;border-radius:3px;display:block;background:var(--line)}
+.dots i.w{background:var(--good)}.dots i.l{background:var(--bad)}.dots i.s{opacity:.35}
+footer{margin-top:18px;font-size:12px;color:var(--sub);line-height:1.5}
+a{color:var(--acc)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="row sp"><h1>🎲 연속 손실 체험 게임</h1><a href="../" class="sub" style="text-decoration:none">← 도구 목록</a></div>
+  <div class="sub">기대값이 플러스인 전략을 거래 하나씩 따라가며, 연패 앞에서 규칙을 지킬 수 있는지 체험합니다.</div>
+
+  <div id="menu">
+    <div class="card">
+      <b>규칙</b>
+      <div class="sub" style="line-height:1.65;margin-top:4px">
+        아래 전략은 <b>오래 하면 이기는 전략</b>입니다(거래당 기대값 플러스). 매 거래마다 <b>진입</b>하거나 <b>건너뛸</b> 수 있고, 건너뛰어도 그 거래의 결과는 공개됩니다.
+        마지막에 <b>끝까지 규칙대로 진입했을 때</b>의 계좌와 비교합니다. 연패가 이어질 때 건너뛰거나 포기하고 싶어지는지 보세요.
+      </div>
+    </div>
+    <div class="card">
+      <b>전략 고르기</b>
+      <div class="seg" id="presets"></div>
+      <div class="sub" id="presetInfo"></div>
+      <div class="sub" style="margin-top:10px"><b>1회 손실 폭</b> (손절 시 계좌에서 잃는 비율)</div>
+      <div class="seg" id="risks"></div>
+      <div class="sub" style="margin-top:6px"><b>거래 횟수</b></div>
+      <div class="seg" id="counts"></div>
+      <div class="row" style="margin-top:10px"><button class="pri grow" id="start">시작하기</button></div>
+    </div>
+    <div class="card">
+      <b>이 전략에서 연패는 얼마나 흔할까</b>
+      <div class="sub">선택한 거래 횟수 안에 해당 연패가 한 번이라도 나올 확률(정확 계산)</div>
+      <table id="probTbl" style="margin-top:6px"></table>
+    </div>
+  </div>
+
+  <div id="play" class="hide">
+    <div class="card">
+      <div class="row sp"><b id="pTitle"></b><span class="sub" id="pProg"></span></div>
+      <canvas id="cv" width="560" height="220"></canvas>
+      <div class="sub" style="margin-top:4px"><span style="color:var(--acc)">━</span> 내 계좌 &nbsp; <span style="color:var(--sub)">┅</span> 규칙대로 갔을 때</div>
+      <div class="chips">
+        <div class="chip">내 계좌<b id="cMine"></b></div>
+        <div class="chip">규칙대로<b id="cRule"></b></div>
+        <div class="chip">현재 연패<b id="cStreak"></b></div>
+        <div class="chip">최대 연패<b id="cMax"></b></div>
+      </div>
+      <div class="dots" id="dots" aria-label="거래 결과"></div>
+      <div class="sub" style="margin-top:4px">초록: 이익, 빨강: 손실, 흐림: 건너뛴 거래</div>
+    </div>
+    <div class="card">
+      <div id="next" class="big">다음 거래</div>
+      <div class="sub" id="nextSub"></div>
+      <div class="row" style="margin-top:10px"><button class="pri grow" id="enter">진입</button><button class="grow" id="skip">건너뛰기</button></div>
+      <div class="row" style="margin-top:8px"><button class="grow" id="auto5">규칙대로 5회</button><button class="grow" id="autoAll">끝까지 진행</button><button id="quit">포기</button></div>
+      <div class="coach" id="coach"></div>
+    </div>
+  </div>
+
+  <div id="end" class="hide">
+    <div class="card">
+      <div class="big" id="eTitle"></div>
+      <div class="sub" id="eSub"></div>
+      <canvas id="cv2" width="560" height="220" style="margin-top:8px"></canvas>
+      <table id="eTbl" style="margin-top:8px"></table>
+      <div class="coach" id="eCoach"></div>
+      <div class="row" style="margin-top:10px"><button class="pri grow" id="again">같은 순서로 다시</button><button class="grow" id="newgame">새 게임</button></div>
+      <div class="sub" style="margin-top:6px" id="seedInfo"></div>
+    </div>
+  </div>
+
+  <footer>교육용 모의 게임이며 투자 권유가 아닙니다. 거래 결과는 입력한 승률로 만든 난수이고 실제 시장 데이터가 아닙니다. 거래는 서로 독립이라고 가정합니다. 입력한 값은 이 브라우저 밖으로 나가지 않습니다. · <a href="../ruin.html">파산 확률 시뮬레이터</a> · <a href="../loss.html">손실 회복 계산기</a></footer>
+</div>
+<script>
+const $ = (id) => document.getElementById(id);
+const PRESETS = [
+  { n: "추세추종형", p: 0.35, R: 3, d: "승률 35%, 손익비 3 — 자주 지고 크게 법니다" },
+  { n: "균형형", p: 0.40, R: 2, d: "승률 40%, 손익비 2" },
+  { n: "스윙형", p: 0.50, R: 1.5, d: "승률 50%, 손익비 1.5" },
+  { n: "높은 승률형", p: 0.65, R: 0.7, d: "승률 65%, 손익비 0.7 — 자주 이기지만 이익이 작습니다" },
+];
+const RISKS = [1, 2, 5];
+const COUNTS = [50, 100, 200];
+let cfg = { pi: 1, risk: 1, n: 100 };
+
+// 시드 고정 난수(mulberry32)
+function rng(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// n번 거래 중 연속 손실 k회 이상이 한 번이라도 나올 확률 (손실 확률 q). 연패 길이 상태 DP
+function probRun(n, k, q) {
+  if (k <= 0) return 1;
+  let s = new Array(k).fill(0);   // s[r]: 아직 k연패가 없고 현재 연패가 r인 확률
+  s[0] = 1;
+  let hit = 0;
+  for (let i = 0; i < n; i++) {
+    const ns = new Array(k).fill(0);
+    for (let r = 0; r < k; r++) {
+      if (!s[r]) continue;
+      ns[0] += s[r] * (1 - q);
+      if (r + 1 === k) hit += s[r] * q; else ns[r + 1] += s[r] * q;
+    }
+    s = ns;
+  }
+  return hit;
+}
+
+function pct(x, d = 1) { return (x * 100).toFixed(d) + "%"; }
+function sgn(x, d = 1) { return (x >= 0 ? "+" : "") + (x * 100).toFixed(d) + "%"; }
+
+function seg(el, items, cur, fn) {
+  el.innerHTML = "";
+  items.forEach((t, i) => {
+    const b = document.createElement("button");
+    b.textContent = t; if (i === cur) b.className = "on";
+    b.onclick = () => fn(i);
+    el.appendChild(b);
+  });
+}
+function menu() {
+  const P = PRESETS[cfg.pi];
+  seg($("presets"), PRESETS.map((x) => x.n), cfg.pi, (i) => { cfg.pi = i; menu(); });
+  seg($("risks"), RISKS.map((x) => x + "%"), RISKS.indexOf(cfg.risk), (i) => { cfg.risk = RISKS[i]; menu(); });
+  seg($("counts"), COUNTS.map((x) => x + "회"), COUNTS.indexOf(cfg.n), (i) => { cfg.n = COUNTS[i]; menu(); });
+  const ev = P.p * P.R - (1 - P.p);
+  $("presetInfo").innerHTML = `${P.d}<br>거래당 기대값 <b class="good">+${ev.toFixed(2)}R</b> (1R = 한 번 손절할 때의 손실)`;
+  let h = "<tr><th>연패</th><th>확률</th></tr>";
+  [3, 5, 7, 9, 12].forEach((k) => { h += `<tr><td>${k}연패 이상</td><td>${pct(probRun(cfg.n, k, 1 - P.p))}</td></tr>`; });
+  $("probTbl").innerHTML = h;
+}
+
+let G = null;
+function newGame(seed) {
+  const P = PRESETS[cfg.pi];
+  const r = rng(seed);
+  const out = [];
+  for (let i = 0; i < cfg.n; i++) out.push(r() < P.p);
+  G = {
+    P, f: cfg.risk / 100, n: cfg.n, seed, out, i: 0, mine: 1, rule: 1,
+    minePath: [1], rulePath: [1], took: [], quit: false,
+    streak: 0, maxStreak: 0, missedWin: 0, avoidedLoss: 0, skips: 0,
+  };
+  $("menu").classList.add("hide"); $("end").classList.add("hide"); $("play").classList.remove("hide");
+  render("진입하거나 건너뛰세요. 건너뛰어도 결과는 공개됩니다.");
+}
+
+// 한 거래 처리. enter: true=진입, false=건너뜀
+function step(enter) {
+  const g = G, win = g.out[g.i];
+  const ruleMove = win ? g.f * g.P.R : -g.f;
+  g.rule *= 1 + ruleMove;
+  if (enter) g.mine *= 1 + ruleMove;
+  else { g.skips++; if (win) g.missedWin++; else g.avoidedLoss++; }
+  g.took.push(enter);
+  g.streak = win ? 0 : g.streak + 1;
+  if (g.streak > g.maxStreak) g.maxStreak = g.streak;
+  g.minePath.push(g.mine); g.rulePath.push(g.rule);
+  g.i++;
+  return win;
+}
+
+function coachText(win, enter) {
+  const g = G, q = 1 - g.P.p;
+  if (win) return enter ? "이익입니다." : "건너뛴 거래가 이익이었습니다. 어느 거래가 이길지는 미리 알 수 없습니다.";
+  if (g.streak >= 3) {
+    const pr = probRun(g.n, g.streak, q);
+    return `${g.streak}연패 중입니다. 이 전략으로 ${g.n}회를 하면 ${g.streak}연패 이상이 한 번이라도 나올 확률은 ${pct(pr, 0)}입니다. 정상 범위일 수 있습니다.`;
+  }
+  return enter ? "손절입니다. 전략의 일부입니다." : "건너뛴 거래는 손실이었습니다. 다만 한 번 피한 것이 전략이 틀렸다는 뜻은 아닙니다.";
+}
+
+function render(msg) {
+  const g = G;
+  $("pTitle").textContent = g.P.n + " · 승률 " + Math.round(g.P.p * 100) + "% · 손익비 " + g.P.R;
+  $("pProg").textContent = g.i + " / " + g.n + "회";
+  $("cMine").textContent = sgn(g.mine - 1);
+  $("cMine").className = g.mine >= 1 ? "good" : "bad";
+  $("cRule").textContent = sgn(g.rule - 1);
+  $("cRule").className = g.rule >= 1 ? "good" : "bad";
+  $("cStreak").textContent = g.streak + "연패";
+  $("cStreak").className = g.streak >= 4 ? "bad" : "";
+  $("cMax").textContent = g.maxStreak + "연패";
+  $("nextSub").textContent = `이익 +${(g.f * g.P.R * 100).toFixed(2)}% / 손절 -${(g.f * 100).toFixed(2)}% (계좌 대비)`;
+  $("next").textContent = (g.i + 1) + "번째 거래";
+  $("coach").textContent = msg || "";
+  let d = "";
+  for (let k = 0; k < g.i; k++) d += `<i class="${g.out[k] ? "w" : "l"}${g.took[k] ? "" : " s"}"></i>`;
+  $("dots").innerHTML = d;
+  draw($("cv"), g);
+}
+
+function draw(cv, g) {
+  const c = cv.getContext("2d"), W = cv.width, H = cv.height, pad = 6;
+  const css = getComputedStyle(document.documentElement), col = (n) => css.getPropertyValue(n).trim();
+  c.clearRect(0, 0, W, H);
+  const all = g.minePath.concat(g.rulePath);
+  let lo = Math.min(0.9, ...all), hi = Math.max(1.1, ...all);
+  const X = (i) => pad + (W - 2 * pad) * i / Math.max(g.n, 1);
+  const Y = (v) => H - pad - (H - 2 * pad) * (v - lo) / (hi - lo);
+  c.strokeStyle = col("--line"); c.lineWidth = 1;
+  c.beginPath(); c.moveTo(pad, Y(1)); c.lineTo(W - pad, Y(1)); c.stroke();
+  const line = (arr, color, dash) => {
+    c.strokeStyle = color; c.lineWidth = 2; c.setLineDash(dash || []);
+    c.beginPath();
+    arr.forEach((v, i) => (i ? c.lineTo(X(i), Y(v)) : c.moveTo(X(i), Y(v))));
+    c.stroke(); c.setLineDash([]);
+  };
+  line(g.rulePath, col("--sub"), [4, 4]);
+  line(g.minePath, col("--acc"));
+}
+
+function finish() {
+  const g = G;
+  // 규칙대로 끝까지: 아직 안 진행한 구간을 마저 계산(비교용)
+  let ruleFull = g.rule, maxS = g.maxStreak, st = g.streak, rulePath = g.rulePath.slice();
+  for (let k = g.i; k < g.n; k++) {
+    const win = g.out[k];
+    ruleFull *= 1 + (win ? g.f * g.P.R : -g.f);
+    st = win ? 0 : st + 1; if (st > maxS) maxS = st;
+    rulePath.push(ruleFull);
+  }
+  const minePath = g.minePath.slice();
+  while (minePath.length < rulePath.length) minePath.push(g.mine);
+  const diff = g.mine - ruleFull;
+  $("play").classList.add("hide"); $("end").classList.remove("hide");
+  $("eTitle").textContent = `내 계좌 ${sgn(g.mine - 1)}  vs  규칙대로 ${sgn(ruleFull - 1)}`;
+  $("eTitle").className = "big " + (g.mine >= ruleFull ? "good" : "bad");
+  $("eSub").textContent = g.quit ? `${g.i}번째 거래에서 포기했습니다. 이후는 규칙대로 갔을 때 결과로 비교합니다.` : `${g.n}회를 모두 진행했습니다.`;
+  const pr = probRun(g.n, Math.max(maxS, 1), 1 - g.P.p);
+  $("eTbl").innerHTML = `<tr><td>건너뛴 거래</td><td>${g.skips}회 (이익 ${g.missedWin}, 손실 ${g.avoidedLoss})</td></tr>
+    <tr><td>이번에 나온 최대 연패</td><td>${maxS}연패</td></tr>
+    <tr><td>그 연패가 나올 확률(${g.n}회 중)</td><td>${pct(pr, 0)}</td></tr>
+    <tr><td>규칙 이탈의 대가</td><td class="${diff >= 0 ? "good" : "bad"}">${sgn(diff)}p</td></tr>`;
+  let m;
+  if (g.skips === 0 && !g.quit) m = `끝까지 규칙대로 진행했습니다. 이 전략은 ${maxS}연패가 한 번 나오는 일이 ${pct(pr, 0)}의 확률로 일어나는 정상 범위였습니다. 연패 중에도 규칙을 지키는 것이 어려운 부분입니다.`;
+  else if (diff < 0) m = `${g.skips ? `건너뛴 ${g.skips}번 중 ${g.missedWin}번이 이익이었고` : "중간에 포기해서"} 규칙대로 갔을 때보다 ${(Math.abs(diff) * 100).toFixed(1)}%p 덜 벌었습니다. 이익이 날 거래가 어느 것인지 미리 알 수 없어서, 일부만 골라 피하면 이익 거래도 함께 놓치게 됩니다.`;
+  else m = `이번에는 규칙을 어긴 쪽이 ${(diff * 100).toFixed(1)}%p 앞섰습니다. 하지만 이 난수 순서에서만의 결과입니다. 새 게임으로 여러 번 반복해서 비교해 보세요. 임의로 건너뛰는 것은 평균적으로 이 전략의 기대값을 깎습니다.`;
+  $("eCoach").textContent = m;
+  $("seedInfo").textContent = `순서 번호 ${g.seed} · "같은 순서로 다시"를 누르면 같은 결과 순서에서 다시 도전합니다.`;
+  const tmp = { n: g.n, minePath, rulePath };
+  draw($("cv2"), tmp);
+}
+
+$("enter").onclick = () => { const w = step(true); G.i >= G.n ? finish() : render(coachText(w, true)); };
+$("skip").onclick = () => { const w = step(false); G.i >= G.n ? finish() : render(coachText(w, false)); };
+function auto(max) {
+  let msg = "";
+  let c = 0;
+  while (G.i < G.n && c < max) {
+    const w = step(true); c++;
+    if (!w && G.streak >= 4) { msg = `${G.streak}연패에서 자동 진행을 멈췄습니다. ` + coachText(w, true); break; }
+  }
+  G.i >= G.n ? finish() : render(msg || "규칙대로 진행했습니다.");
+}
+$("auto5").onclick = () => auto(5);
+$("autoAll").onclick = () => auto(1e9);
+$("quit").onclick = () => { G.quit = true; finish(); };
+$("start").onclick = () => newGame((Math.random() * 4294967296) >>> 0);
+$("again").onclick = () => newGame(G.seed);
+$("newgame").onclick = () => { $("end").classList.add("hide"); $("menu").classList.remove("hide"); menu(); };
+menu();
+</script>
+<script data-goatcounter="https://readntest.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body>
+</html>
