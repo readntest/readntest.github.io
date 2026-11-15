@@ -1,0 +1,24 @@
+# 읽고 검증하는 도구
+
+> 블로그 '읽고 검증하는 노트'의 글에서 쓴 계산을 직접 해볼 수 있는 무료 계산기와, 투자 규칙을 몸으로 익히는 웹 게임 모음입니다. 모든 계산은 브라우저 안에서만 이루어지며 입력값은 서버로 전송되지 않습니다. 투자 권유가 아닌 교육용 도구입니다.
+
+운영: 읽고 검증하는 노트 (블로그 https://readtest.tistory.com/ , 유튜브 https://www.youtube.com/channel/UC1m0swHVsdjxOiPDqIk4QBw )
+
+## 계산기
+- [복리 계산기](https://readntest.github.io/compound.html): 일시금과 월 적립을 함께 넣어 복리 최종 금액과 목표 도달 기간을 계산
+- [월 적립 금액 계산기](https://readntest.github.io/dca.html): 목표 금액을 위해 매달 얼마를 적립해야 하는지 계산
+- [N년 전 1억 오늘 평가액 계산기](https://readntest.github.io/nyears.html): 과거 시점에 투자했다면 오늘 평가액이 얼마인지 계산
+- [배당 재투자 계산기](https://readntest.github.io/dividend.html): 배당을 재투자할 때의 자산 변화를 계산
+- [72의 법칙 계산기](https://readntest.github.io/rule72.html): 자산이 두 배가 되는 기간을 어림 계산
+- [레버리지 ETF 적립 시뮬레이터](https://readntest.github.io/leverage.html): 레버리지 ETF 적립 결과를 시뮬레이션
+- [무한매수법 v2.2 회차 계산기](https://readntest.github.io/infinite.html): 무한매수법 회차별 매수 수량과 금액 계산
+- [손실 회복 계산기](https://readntest.github.io/loss.html): 손실을 되찾는 데 필요한 수익률 계산
+- [파산 확률 시뮬레이터](https://readntest.github.io/ruin.html): 매매 규칙의 파산 확률 시뮬레이션
+- [포지션 사이징 계산기](https://readntest.github.io/sizing.html): 손절폭과 허용 손실로 매수 수량 계산
+- [인출 성공률 계산기](https://readntest.github.io/withdraw.html): 은퇴 후 인출 계획의 성공률 계산
+
+## 게임
+- [돌파 매매 게임](https://readntest.github.io/breakout-game/)
+- [하락장 생존 게임](https://readntest.github.io/bear-game/)
+- [무한매수법 모의 운용](https://readntest.github.io/infinite-game/)
+- [연속 손실 체험 게임](https://readntest.github.io/streak-game/)

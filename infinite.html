@@ -28,7 +28,54 @@
     "@type": "Offer",
     "price": "0",
     "priceCurrency": "KRW"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "읽고 검증하는 노트",
+    "url": "https://readtest.tistory.com/",
+    "sameAs": [
+      "https://readtest.tistory.com/",
+      "https://www.youtube.com/channel/UC1m0swHVsdjxOiPDqIk4QBw"
+    ]
   }
+}</script>
+<script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "T는 무엇인가요?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "누적 매수 원가를 1회 매수금으로 나눈 값입니다. 분할 수 40회 중 몇 회분을 썼는지 보여 주고, 전반전과 후반전 구분, 별%에 쓰입니다."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "별%와 별가격은 무엇인가요?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "별%는 10에서 T의 절반을 뺀 값(40분할 기준)이고, 별가격은 평단에 별%를 더한 가격입니다. 매수와 1/4 매도의 기준선으로 쓰입니다."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "이 규칙으로 하면 잃지 않나요?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "아닙니다. 같은 규칙의 백테스트에서 닷컴 구간을 포함한 합성 3배는 최대 낙폭이 -99.9%였습니다. 분할 매수는 긴 하락장을 피하지 못했습니다."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "실제 주문에 그대로 써도 되나요?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "권하지 않습니다. 공개 정리글을 참고한 구현이라 실제 방식과 다를 수 있고, 주문 방식·수수료·세금·환율이 반영되지 않았습니다."
+      }
+    }
+  ]
 }</script>
 <!-- Google Tag Manager -->
 <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','GTM-NTQGBKSG');</script>
